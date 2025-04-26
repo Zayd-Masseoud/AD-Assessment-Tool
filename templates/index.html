@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}AD Assessment Tool - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 text-center mb-4">
+        <h1 class="display-4 fw-bold">Active Directory Assessment Tool</h1>
+        <p class="lead text-secondary">Identify, analyze, and report security vulnerabilities in Active Directory environments</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="feature-icon bg-primary bg-gradient text-white mx-auto mb-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                    <i class="fas fa-cog fa-2x"></i>
+                </div>
+                <h3 class="card-title h5 mb-3">Configure Target</h3>
+                <p class="card-text text-muted">Set up domain parameters, IP addresses, and target subnets for your assessment.</p>
+                <a href="/target_config" class="btn btn-outline-primary mt-3">Configure <i class="fas fa-arrow-right ms-2"></i></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="feature-icon bg-danger bg-gradient text-white mx-auto mb-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                    <i class="fas fa-crosshairs fa-2x"></i>
+                </div>
+                <h3 class="card-title h5 mb-3">Select Attacks</h3>
+                <p class="card-text text-muted">Choose from a variety of Active Directory attack vectors to test security controls.</p>
+                <a href="/attack_selection" class="btn btn-outline-danger mt-3">Select Attacks <i class="fas fa-arrow-right ms-2"></i></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="feature-icon bg-success bg-gradient text-white mx-auto mb-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 70px; height: 70px;">
+                    <i class="fas fa-chart-bar fa-2x"></i>
+                </div>
+                <h3 class="card-title h5 mb-3">View Results</h3>
+                <p class="card-text text-muted">Analyze findings and generate comprehensive reports of discovered vulnerabilities.</p>
+                <a href="/results" class="btn btn-outline-success mt-3">View Results <i class="fas fa-arrow-right ms-2"></i></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading"><i class="fas fa-info-circle me-2"></i>About This Tool</h4>
+            <p>This application is designed for security professionals to perform controlled Active Directory security assessments. Use responsibly and only on systems you have explicit permission to test.</p>
+            <hr>
+            <p class="mb-0">Begin by configuring your target environment, then select the desired attack vectors to execute.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

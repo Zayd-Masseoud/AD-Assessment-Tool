@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}AD Assessment Tool - Target Configuration{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h1><i class="fas fa-cog me-2"></i>Target Configuration</h1>
+        <p class="lead text-secondary">Configure the Active Directory environment you wish to assess.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <form method="POST" action="{{ url_for('target_config') }}">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-server me-2"></i>Active Directory Environment</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="domain_name" class="form-label">Domain Name</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-globe"></i></span>
+                            <input type="text" class="form-control" id="domain_name" name="domain_name" 
+                                placeholder="example.local" required>
+                        </div>
+                        <div class="form-text">Fully qualified domain name of the Active Directory domain</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="dc_ip" class="form-label">Domain Controller IP</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-network-wired"></i></span>
+                            <input type="text" class="form-control" id="dc_ip" name="dc_ip" 
+                                placeholder="192.168.1.10" required>
+                        </div>
+                        <div class="form-text">IP address of the primary domain controller</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="target_subnets" class="form-label">Target Subnets</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-sitemap"></i></span>
+                            <input type="text" class="form-control" id="target_subnets" name="target_subnets" 
+                                placeholder="192.168.1.0/24, 10.0.0.0/16" required>
+                        </div>
+                        <div class="form-text">Comma-separated list of subnets to include in the assessment</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="use_credentials" name="use_credentials" checked> {# Default to checked #}
+                            <label class="form-check-label" for="use_credentials">Use Domain Credentials (Recommended)</label>
+                        </div>
+                        <div id="credentials_section" class=""> {# Remove d-none initially if checkbox is checked by default #}
+                            <div class="mb-3">
+                                 <label for="username" class="form-label">Username</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                    <input type="text" class="form-control" id="username" name="username"
+                                        placeholder="user@example.local or EXAMPLE\user">
+                                </div>
+                            </div>
+
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                <input type="password" class="form-control" id="password" name="password">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-light d-flex justify-content-between">
+                    <button type="reset" class="btn btn-outline-secondary">
+                        <i class="fas fa-undo me-1"></i> Reset
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Save Configuration
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    
+   document.addEventListener('DOMContentLoaded', function() {
+    const useCredentialsSwitch = document.getElementById('use_credentials');
+    const credentialsSection = document.getElementById('credentials_section');
+
+    // Function to toggle visibility
+    function toggleCredentials() {
+        if (useCredentialsSwitch.checked) {
+            credentialsSection.classList.remove('d-none');
+        } else {
+            credentialsSection.classList.add('d-none');
+        }
+    }
+
+    // Initial state on load
+    toggleCredentials();
+
+    // Listener for changes
+    useCredentialsSwitch.addEventListener('change', toggleCredentials);
+});
+</script>
+{% endblock %}

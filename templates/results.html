@@ -1,0 +1,760 @@
+{% extends 'base.html' %}
+
+{% block title %}Penetration Test Results{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1><i class="fas fa-chart-bar me-2"></i>Penetration Test Results</h1>
+        <p class="lead">Detailed findings from your Active Directory security assessment.</p>
+    </div>
+    <div class="col-md-4 text-end d-flex justify-content-end align-items-center">
+        <button class="btn btn-outline-secondary me-2" id="downloadPdf">
+            <i class="fas fa-file-pdf me-1"></i> Export PDF
+        </button>
+        <button class="btn btn-outline-secondary" id="downloadCsv">
+            <i class="fas fa-file-csv me-1"></i> Export CSV
+        </button>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card border-danger h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Critical Findings</h5>
+                <h2 class="text-danger mb-0">{{ run.critical_findings|default('0') }}</h2>
+                <div class="progress mt-2">
+                    <div class="progress-bar bg-danger" style="width: '{% if total_findings|default(0) > 0 %}{{ (critical_count|default(0) / total_findings * 100)|round }}{% else %}0{% endif %}%'"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card border-warning h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">High Severity</h5>
+                <h2 class="text-warning mb-0">{{ run.high_findings|default('0') }}</h2>
+                <div class="progress mt-2">
+                    <div class="progress-bar bg-warning" style="width: '{% if total_findings|default(0) > 0 %}{{ (high_count|default(0) / total_findings * 100)|round }}{% else %}0{% endif %}%'"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card border-primary h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Medium Severity</h5>
+                <h2 class="text-primary mb-0">{{ run.medium_findings|default('0') }}</h2>
+                <div class="progress mt-2">
+                    <div class="progress-bar bg-primary" style="width: '{% if total_findings|default(0) > 0 %}{{ (medium_count|default(0) / total_findings * 100)|round }}{% else %}0{% endif %}%'"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card border-success h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">Low Severity</h5>
+                <h2 class="text-success mb-0">{{ run.low_findings|default('0') }}</h2>
+                <div class="progress mt-2">
+                    <div class="progress-bar bg-success" style="width: '{% if total_findings|default(0) > 0 %}{{ (low_count|default(0) / total_findings * 100)|round }}{% else %}0{% endif %}%'"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assessment Overview -->
+<div class="card mb-4">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Assessment Overview</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Target Domain:</strong> {{ run.target.domain_name|default('Not specified') }}</p>
+                <p><strong>Assessment Date:</strong> {{ run.start_time.strftime('%Y-%m-%d %H:%M:%S') if run.start_time else 'Not specified' }}</p>
+                <p><strong>Assessment Type:</strong> {{ run.selected_modules|default('N/A') }}</p>
+                <p><strong>Duration:</strong> {% if run.start_time and run.end_time %}{{ ((run.end_time - run.start_time).total_seconds() / 60)|round(2) }} minutes{% else %}N/A{% endif %}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Overall Risk Level:</strong>
+                    <span class="badge {{ run.risk_level_class|default('bg-secondary') }}">
+                        {{ run.risk_level|default('N/A') }}
+                    </span>
+                </p>
+                <p><strong>Total Tests Performed:</strong> {{ run.selected_modules|list|length if run.selected_modules else '0' }}</p>
+                <p><strong>Users Found:</strong> {{ run.users_count|default('N/A') }}</p>
+                <p><strong>Groups Found:</strong> {{ run.groups_count|default('N/A') }}</p>
+                <p><strong>Computers Found:</strong> {{ run.computers_count|default('N/A') }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs for Different Result Categories -->
+<ul class="nav nav-tabs mb-3" id="resultTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="vulnerabilities-tab" data-bs-toggle="tab" data-bs-target="#vulnerabilities" type="button" role="tab" aria-controls="vulnerabilities" aria-selected="true">
+            <i class="fas fa-bug me-1"></i>Vulnerabilities {% if vulnerabilities %}<span class="badge rounded-pill bg-danger ms-1">{{ vulnerabilities|length }}</span>{% endif %}
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="misconfigurations-tab" data-bs-toggle="tab" data-bs-target="#misconfigurations" type="button" role="tab" aria-controls="misconfigurations" aria-selected="false">
+            <i class="fas fa-exclamation-triangle me-1"></i>Misconfigurations {% if misconfigurations %}<span class="badge rounded-pill bg-warning text-dark ms-1">{{ misconfigurations|length }}</span>{% endif %}
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="privileged-access-tab" data-bs-toggle="tab" data-bs-target="#privileged-access" type="button" role="tab" aria-controls="privileged-access" aria-selected="false">
+            <i class="fas fa-user-shield me-1"></i>Privileged Access
+        </button>
+    </li>
+    <!-- NTDS.dit Tab -->
+    {% if ntds_hashes and ntds_hashes|length > 0 %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="ntds-tab" data-bs-toggle="tab" 
+                data-bs-target="#ntds" type="button" role="tab" 
+                aria-controls="ntds" aria-selected="false">
+                <i class="fas fa-database me-1"></i>NTDS.dit Hashes
+                <span class="badge rounded-pill bg-danger ms-1">{{ ntds_hashes|length }}</span>
+            </button>
+        </li>
+    {% endif %}
+    {% if password_policy %}
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="password-policy-tab" data-bs-toggle="tab" data-bs-target="#password-policy" type="button" role="tab" aria-controls="password-policy" aria-selected="false">
+            <i class="fas fa-key me-1"></i>Password Policy
+        </button>
+    </li>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>Password policy data not available (enumeration may not have included it or failed).
+    </div>
+    {% endif %}
+</ul>
+
+<!-- Single Tab Content Container -->
+<div class="tab-content" id="resultTabContent">
+    <!-- Vulnerabilities Tab -->
+    <div class="tab-pane fade show active" id="vulnerabilities" role="tabpanel" aria-labelledby="vulnerabilities-tab">
+        {% if vulnerabilities %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th scope="col" style="width: 10%;">Severity</th>
+                            <th scope="col" style="width: 25%;">Finding</th>
+                            <th scope="col">Description</th>
+                            <th scope="col" style="width: 10%;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vuln in vulnerabilities %}
+                        <tr class="{{ vuln.severity|lower }}">
+                            <td>
+                                <span class="badge bg-{{ vuln.severity|lower }}">{{ vuln.severity }}</span>
+                            </td>
+                            <td>{{ vuln.title }}</td>
+                            <td>{{ vuln.description|truncate(150) }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#detailModal{{ vuln.id }}">
+                                    <i class="fas fa-info-circle"></i> Details
+                                </button>
+                            </td>
+                        </tr>
+                        <!-- Modal for each vulnerability -->
+                        <div class="modal fade" id="detailModal{{ vuln.id }}" tabindex="-1" aria-labelledby="detailModalLabel{{ vuln.id }}" aria-hidden="true">
+                            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-{{ vuln.severity|lower }}">
+                                        <h5 class="modal-title" id="detailModalLabel{{ vuln.id }}">
+                                            <span class="badge bg-{{ vuln.severity|lower }} me-2">{{ vuln.severity }}</span>
+                                            {{ vuln.title }}
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <h6><i class="fas fa-file-alt me-1"></i>Description</h6>
+                                        <p>{{ vuln.description|default('No description available.') }}</p>
+                                        {% if vuln.impact %}
+                                        <h6 class="mt-3"><i class="fas fa-bolt me-1"></i>Potential Impact</h6>
+                                        <p>{{ vuln.impact }}</p>
+                                        {% endif %}
+                                        {% if vuln.affected_objects %}
+                                        <h6 class="mt-3"><i class="fas fa-tags me-1"></i>Affected Objects</h6>
+                                        <ul class="list-group list-group-flush">
+                                            {% for obj in vuln.affected_objects %}
+                                            <li class="list-group-item ps-0"><i class="fas fa-caret-right me-1"></i>{{ obj }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% endif %}
+                                        {% if vuln.remediation %}
+                                        <h6 class="mt-3"><i class="fas fa-wrench me-1"></i>Remediation</h6>
+                                        <p>{{ vuln.remediation }}</p>
+                                        {% endif %}
+                                        {% if vuln.remediation_steps %}
+                                        <h6 class="mt-3"><i class="fas fa-list-ol me-1"></i>Remediation Steps</h6>
+                                        <ol class="list-group list-group-numbered list-group-flush">
+                                            {% for step in vuln.remediation_steps %}
+                                            <li class="list-group-item ps-0">{{ step }}</li>
+                                            {% endfor %}
+                                        </ol>
+                                        {% endif %}
+                                        {% if vuln.references %}
+                                        <h6 class="mt-3"><i class="fas fa-book me-1"></i>References</h6>
+                                        <ul class="list-unstyled">
+                                            {% for ref in vuln.references %}
+                                            <li><i class="fas fa-external-link-alt fa-xs me-1"></i><a href="{{ ref.url }}" target="_blank" rel="noopener noreferrer">{{ ref.title }}</a></li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% endif %}
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-check-circle me-2"></i>No vulnerabilities found or data available.
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Misconfigurations Tab -->
+    <div class="tab-pane fade" id="misconfigurations" role="tabpanel" aria-labelledby="misconfigurations-tab">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Misconfigurations</h5>
+            </div>
+            <div class="card-body">
+                {% if misconfigurations %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Misconfiguration Name</th>
+                                <th scope="col">Severity</th>
+                                <th scope="col">Description</th>
+                                <th scope="col">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for misconfig in misconfigurations %}
+                            <tr>
+                                <td>{{ misconfig.title }}</td>
+                                <td>
+                                    <span class="badge {{ misconfig.severity_class }}">{{ misconfig.severity }}</span>
+                                </td>
+                                <td>{{ misconfig.description }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary toggle-details" type="button" data-bs-toggle="collapse" data-bs-target="#misconfigDetails{{ misconfig.id }}" aria-expanded="false" aria-controls="misconfigDetails{{ misconfig.id }}">
+                                        <i class="fas fa-info-circle me-1"></i> <span>Details</span>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="collapse" id="misconfigDetails{{ misconfig.id }}">
+                                <td colspan="4" class="p-3 bg-light">
+                                    <h6>Details for {{ misconfig.title }}:</h6>
+                                    <p><strong>Impact:</strong> {{ misconfig.impact }}</p>
+                                    <p><strong>Affected Objects:</strong> {{ misconfig.affected_objects|join(', ') }}</p>
+                                    <p><strong>Remediation:</strong> {{ misconfig.remediation }}</p>
+                                    {% if misconfig.remediation_steps %}
+                                    <p><strong>Remediation Steps:</strong></p>
+                                    <ul>
+                                        {% for step in misconfig.remediation_steps %}
+                                        <li>{{ step }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
+                                    {% if misconfig.references %}
+                                    <p><strong>References:</strong></p>
+                                    <ul>
+                                        {% for ref in misconfig.references %}
+                                        <li><a href="{{ ref.url }}" target="_blank">{{ ref.title }}</a></li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>No misconfigurations found.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Privileged Access Tab -->
+    <div class="tab-pane fade" id="privileged-access" role="tabpanel" aria-labelledby="privileged-access-tab">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-users-cog me-2"></i>Privileged Access Analysis</h5>
+            </div>
+            <div class="card-body">
+                <!-- Privileged Groups -->
+                {% if privileged_groups %}
+                <h6><i class="fas fa-user-friends me-2"></i>Privileged Groups</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Group Name</th>
+                                <th scope="col">Member Count</th>
+                                <th scope="col">Risk Level</th>
+                                <th scope="col">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for group in privileged_groups %}
+                            <tr>
+                                <td><i class="fas fa-user-friends me-2 text-muted"></i>{{ group.name }}</td>
+                                <td>{{ group.members|length }}</td>
+                                <td>
+                                    <span class="badge bg-{{ group.risk_level|lower }}">{{ group.risk_level }}</span>
+                                </td>
+                                <td>
+                                    {% if group.members %}
+                                    <button class="btn btn-sm btn-outline-secondary toggle-members" type="button" data-bs-toggle="collapse" data-bs-target="#groupDetails{{ group.id }}" aria-expanded="false" aria-controls="groupDetails{{ group.id }}">
+                                        <i class="fas fa-users me-1"></i> <span>Members</span>
+                                    </button>
+                                    {% else %}
+                                    <span class="text-muted fst-italic">No members data</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% if group.members %}
+                            <tr class="collapse" id="groupDetails{{ group.id }}">
+                                <td colspan="4" class="p-3 bg-light">
+                                    <h6>Members of {{ group.name }}:</h6>
+                                    <ul class="list-group list-group-flush">
+                                        {% for member in group.members %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center bg-light ps-0">
+                                            <span>
+                                                <i class="fas {{ 'fa-user' if member.member_type == 'user' else 'fa-users' if member.member_type == 'group' else 'fa-desktop' }} me-2 text-muted"></i>
+                                                {{ member.member_name }}
+                                            </span>
+                                            <span class="badge bg-secondary rounded-pill">{{ member.member_type|capitalize }}</span>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+                <!-- Privileged Users -->
+                {% if privileged_users %}
+                <h6><i class="fas fa-user-shield me-2"></i>Privileged Users</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Username</th>
+                                <th scope="col">Display Name</th>
+                                <th scope="col">Privileged Groups</th>
+                                <th scope="col">Password Age (days)</th>
+                                <th scope="col">Last Logon</th>
+                                <th scope="col">Account Status</th>
+                                <th scope="col">Risk Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in privileged_users %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.display_name|default('N/A') }}</td>
+                                <td>{{ user.groups|join(', ') }}</td>
+                                <td>{{ user.password_age_days|default('N/A') }}</td>
+                                <td>{{ user.last_logon }}</td>
+                                <td>{{ user.account_status }}</td>
+                                <td>
+                                    <span class="badge bg-{{ user.risk_level|lower }}">{{ user.risk_level }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>No privileged users found.
+                </div>
+                {% endif %}
+                {% if not privileged_groups and not privileged_users %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>No privileged groups or users analysis available.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Policy Tab Content -->
+    <div class="tab-pane fade" id="password-policy" role="tabpanel" aria-labelledby="password-policy-tab">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-file-contract me-2"></i>Password Policy Assessment</h5>
+            </div>
+            <div class="card-body">
+                {% if password_policy %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-cogs me-1"></i>Domain Policy Settings</h6>
+                        <ul class="list-group mb-3">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Minimum Password Length
+                                <span class="badge {{ 'bg-success' if password_policy.min_length >= 12 else 'bg-danger' }} rounded-pill">
+                                    {{ password_policy.min_length|default('0') }}
+                                </span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Password History
+                                <span class="badge {{ 'bg-success' if password_policy.password_history >= 24 else 'bg-danger' }} rounded-pill">
+                                    {{ password_policy.password_history|default('0') }}
+                                </span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Maximum Password Age (days)
+                                <span class="badge {{ 'bg-success' if password_policy.max_age <= 60 and password_policy.max_age > 0 else 'bg-danger' }} rounded-pill">
+                                    {{ password_policy.max_age|default('0') }}
+                                </span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Minimum Password Age (days)
+                                <span class="badge {{ 'bg-success' if password_policy.min_age >= 1 else 'bg-danger' }} rounded-pill">
+                                    {{ password_policy.min_age|default('0') }}
+                                </span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Lockout Threshold
+                                <span class="badge {{ 'bg-success' if password_policy.lockout_threshold <= 5 and password_policy.lockout_threshold > 0 else 'bg-danger' }} rounded-pill">
+                                    {{ password_policy.lockout_threshold|default('0') }}
+                                </span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Complexity Enabled
+                                <span class="badge {{ 'bg-success' if password_policy.complexity else 'bg-danger' }} rounded-pill">
+                                    {{ password_policy.complexity|default('False') }}
+                                </span>
+                            </li>
+                        </ul>
+                        <h6><i class="fas fa-chart-pie me-1"></i>Password Strength Distribution</h6>
+                        <div style="position: relative; height: 250px; width: 100%;">
+                            <canvas id="passwordStrengthChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        {% if password_policy.issues %}
+                        <h6><i class="fas fa-exclamation-triangle me-1"></i>Policy Issues</h6>
+                        <ul class="list-group mb-3">
+                            {% for issue in password_policy.issues %}
+                            <li class="list-group-item text-danger">{{ issue }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                        {% if password_policy.user_password_stats %}
+                        <h6><i class="fas fa-users me-1"></i>User Password Details</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Password Age (days)</th>
+                                        <th>Last Set</th>
+                                        <th>Expired</th>
+                                        <th>Status</th>
+                                        <th>Strength</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in password_policy.user_password_stats %}
+                                    <tr>
+                                        <td>{{ user.samAccountName }}</td>
+                                        <td>{{ user.passwordAgeDays if user.passwordAgeDays is not none and user.passwordAgeDays != 'None' else 'N/A' }}</td>
+                                        <td>{{ user.pwdLastSet if user.pwdLastSet is not none and user.pwdLastSet != 'None' else 'N/A' }}</td>
+                                        <td>
+                                            <span class="badge {{ 'bg-danger' if user.passwordExpired else 'bg-success' }}">
+                                                {{ 'Yes' if user.passwordExpired else 'No' }}
+                                            </span>
+                                        </td>
+                                        <td>{{ user.accountStatus }}</td>
+                                        <td>
+                                            <span class="badge {{ 'bg-danger' if user.passwordStrength in ['very_weak', 'weak'] else 'bg-warning' if user.passwordStrength == 'medium' else 'bg-success' }}">
+                                                {{ user.passwordStrength|capitalize }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>Password policy data not available.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- NTDS.dit Tab Content -->
+    {% if ntds_hashes and ntds_hashes|length > 0 %}
+    <div class="tab-pane fade" id="ntds" role="tabpanel" aria-labelledby="ntds-tab">
+        <div class="card mb-4">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Extracted NTLM Hashes (NTDS.dit)</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning small">
+                    <i class="fas fa-exclamation-triangle me-1"></i><strong>Warning:</strong> These hashes were extracted from the domain controller. Possession of the krbtgt hash allows for Golden Ticket attacks. Handle this data with extreme care and secure it appropriately.
+                </div>
+                {% if ntds_hashes %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Username / SID</th>
+                                <th scope="col">NTLM Hash</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for hash_info in ntds_hashes %}
+                            <tr>
+                                <td><code class="user-select-all">{{ hash_info.username }}</code></td>
+                                <td><code class="user-select-all">{{ hash_info.ntlm_hash }}</code></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-muted small mt-2">Total Hashes Extracted: {{ ntds_hashes|length }}</p>
+                {% else %}
+                <div class="alert alert-info">
+                    No NTDS hashes were found or extracted in this assessment run.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Recommendations Section -->
+<div class="card mt-4 border-primary">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Recommendations</h5>
+    </div>
+    <div class="card-body">
+        {% if recommendations %}
+            <div class="accordion" id="recommendationsAccordion">
+                {% for rec in recommendations %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingRec{{ loop.index }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRec{{ loop.index }}" aria-expanded="false" aria-controls="collapseRec{{ loop.index }}">
+                            <span class="badge {{ rec.priority_class|default('bg-secondary') }} me-2">{{ rec.priority|default('Medium') }}</span>
+                            {{ rec.title|default('Recommendation') }}
+                        </button>
+                    </h2>
+                    <div id="collapseRec{{ loop.index }}" class="accordion-collapse collapse" aria-labelledby="headingRec{{ loop.index }}" data-bs-parent="#recommendationsAccordion">
+                        <div class="accordion-body">
+                            <p>{{ rec.description|default('No description provided.') }}</p>
+                            {% if rec.steps %}
+                            <div class="mt-3">
+                                <h6><i class="fas fa-tasks me-1"></i>Implementation Steps:</h6>
+                                <ol class="list-group list-group-numbered list-group-flush">
+                                    {% for step in rec.steps %}
+                                    <li class="list-group-item ps-0">{{ step }}</li>
+                                    {% endfor %}
+                                </ol>
+                            </div>
+                            {% endif %}
+                            {% if rec.resources %}
+                            <div class="mt-3">
+                                <h6><i class="fas fa-link me-1"></i>Additional Resources:</h6>
+                                <ul class="list-unstyled">
+                                    {% for resource in rec.resources %}
+                                    <li><i class="fas fa-external-link-alt fa-xs me-1"></i><a href="{{ resource.url }}" target="_blank" rel="noopener noreferrer">{{ resource.title }}</a></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-circle me-2"></i>No recommendations available at this time.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Finding Detail Modals (Misconfigurations) -->
+{% if misconfigurations %}
+{% for misconfig in misconfigurations %}
+<div class="modal fade" id="misconfigModal{{ misconfig.id }}" tabindex="-1" aria-labelledby="misconfigModalLabel{{ misconfig.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header {{ misconfig.severity_class_light|default('bg-light') }}">
+                <h5 class="modal-title" id="misconfigModalLabel{{ misconfig.id }}">
+                    <span class="badge {{ misconfig.severity_class|default('bg-secondary') }} me-2">{{ misconfig.severity|default('Info') }}</span>
+                    {{ misconfig.name|default('Misconfiguration Details') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6><i class="fas fa-file-alt me-1"></i>Description</h6>
+                <p>{{ misconfig.description|default('No description available.') }}</p>
+                {% if misconfig.impact %}
+                <h6 class="mt-3"><i class="fas fa-bolt me-1"></i>Potential Impact</h6>
+                <p>{{ misconfig.impact }}</p>
+                {% endif %}
+                {% if misconfig.affected_objects_list %}
+                <h6 class="mt-3"><i class="fas fa-tags me-1"></i>Affected Objects</h6>
+                <ul class="list-group list-group-flush">
+                    {% for obj in misconfig.affected_objects_list %}
+                    <li class="list-group-item ps-0"><i class="fas fa-caret-right me-1"></i>{{ obj }}</li>
+                    {% endfor %}
+                </ul>
+                {% elif misconfig.affected_objects %}
+                <h6 class="mt-3"><i class="fas fa-tags me-1"></i>Affected Objects</h6>
+                <p>{{ misconfig.affected_objects }}</p>
+                {% endif %}
+                {% if misconfig.remediation %}
+                <h6 class="mt-3"><i class="fas fa-wrench me-1"></i>Remediation Summary</h6>
+                <p>{{ misconfig.remediation }}</p>
+                {% endif %}
+                {% if misconfig.remediation_steps %}
+                <h6 class="mt-3"><i class="fas fa-list-ol me-1"></i>Remediation Steps</h6>
+                <ol class="list-group list-group-numbered list-group-flush">
+                    {% for step in misconfig.remediation_steps %}
+                    <li class="list-group-item ps-0">{{ step }}</li>
+                    {% endfor %}
+                </ol>
+                {% endif %}
+                {% if misconfig.references %}
+                <h6 class="mt-3"><i class="fas fa-book me-1"></i>References</h6>
+                <ul class="list-unstyled">
+                    {% for ref in misconfig.references %}
+                    <li><i class="fas fa-external-link-alt fa-xs me-1"></i><a href="{{ ref.url }}" target="_blank" rel="noopener noreferrer">{{ ref.title }}</a></li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Update Chart.js Script -->
+{% block scripts %}
+    {{ super() }}
+
+    {% if password_policy and password_policy.strength_counts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordPolicyTab = document.getElementById('password-policy');
+            const chartElement = document.getElementById('passwordStrengthChart');
+            let chartInstance = null;
+
+            if (chartElement) {
+                const initChart = () => {
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                        chartInstance = null;
+                    }
+
+                    const ctx = chartElement.getContext('2d');
+                    const passwordStrengthData = [
+                        {{ password_policy.strength_counts.very_weak|default(0) }},
+                        {{ password_policy.strength_counts.weak|default(0) }},
+                        {{ password_policy.strength_counts.medium|default(0) }},
+                        {{ password_policy.strength_counts.strong|default(0) }},
+                        {{ password_policy.strength_counts.very_strong|default(0) }},
+                        {{ password_policy.strength_counts.unknown|default(0) }}
+                    ];
+                    const data = {
+                        labels: ['Very Weak', 'Weak', 'Medium', 'Strong', 'Very Strong', 'Unknown'],
+                        datasets: [{
+                            label: 'Password Strength Distribution',
+                            data: passwordStrengthData,
+                            backgroundColor: ['#dc3545', '#fd7e14', '#ffc107', '#198754', '#0d6efd', '#6c757d'],
+                            borderColor: '#fff',
+                            borderWidth: 1
+                        }]
+                    };
+                    const config = {
+                        type: 'pie',
+                        data: data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom' },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.label || '';
+                                            const value = context.raw || 0;
+                                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                            const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                            return `${label}: ${value} (${percentage}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    chartInstance = new Chart(ctx, config);
+                };
+
+                const tab = new bootstrap.Tab(document.querySelector('#password-policy-tab'));
+                document.querySelector('#password-policy-tab').addEventListener('shown.bs.tab', function () {
+                    initChart();
+                });
+
+                window.addEventListener('beforeunload', function() {
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                        chartInstance = null;
+                    }
+                });
+            }
+        });
+    </script>
+    {% endif %}
+
+    <script src="{{ url_for('static', filename='js/results-interactivity.js') }}"></script>
+{% endblock scripts %}
+{% block styles %}
+    {{ super() }}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% endblock styles %}
+
+{% endblock content %}

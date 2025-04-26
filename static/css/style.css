@@ -1,0 +1,7 @@
+/* style.css */
+.collapse {
+    transition: height 0.15s ease;
+}
+.collapsing {
+    transition: height 0.15s ease;
+}
