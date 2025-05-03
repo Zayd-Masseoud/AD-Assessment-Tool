@@ -16,7 +16,6 @@ import re  # Needed for regex operations
 import logging
 import traceback
 from impacket.dcerpc.v5 import transport, samr, lsad
-from impacket.examples.secretsdump import RemoteOperations, NTDSHashes
 
 logger = logging.getLogger(__name__)
 
