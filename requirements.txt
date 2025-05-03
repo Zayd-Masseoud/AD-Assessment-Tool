@@ -15,10 +15,13 @@ ldap3==2.9.1
 weasyprint==63.0
 
 # Encryption
-cryptography==43.0.1
+cryptography==42.0.8
 
 # For NTLM authentication (MD4 hash support)
 pycryptodome==3.19.0
 
 # Jinja2 templating (likely already installed as Flask dependency)
 Jinja2>=3.0.0
+
+# For SMB/Kerberos/NTLM checks
+impacket==0.12.0
