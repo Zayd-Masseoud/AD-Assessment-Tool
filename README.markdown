@@ -21,10 +21,9 @@ The AD Assessment Tool is a Flask-based web application designed to assess Activ
 ## Installation
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/yourusername/your-repo.git
-   cd your-repo
-   ```
-   Replace `yourusername/your-repo` with your GitHub repository URL.
+   git clone https://github.com/Zayd-Masseoud/AD-Assessment-Tool
+   cd AD-Assessment-Tool
+
 
 2. **Set Up a Virtual Environment**:
    ```bash
